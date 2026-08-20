@@ -364,7 +364,7 @@ ${
         try {
           // Send email to customer using Resend
           await resend.emails.send({
-            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
+            from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
             to: customerEmail,
             subject: `Order Confirmation - ${orderNumber}`,
             html: customerEmailHtml,
@@ -373,7 +373,7 @@ ${
 
           // Send email to admin using Resend
           await resend.emails.send({
-            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
+            from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
             to: process.env.PERSONAL_EMAIL,
             subject: `New Order from ${customerEmail} - ${orderNumber}`,
             html: adminEmailHtml,
@@ -383,7 +383,7 @@ ${
           // Send email to chana resnick as well if US
           if (shopRegion === "US") {
             await resend.emails.send({
-              from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
+              from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
               to: process.env.US_PERSONAL_EMAIL,
               subject: `New Order from ${customerEmail} - ${orderNumber}`,
               html: adminEmailHtml,
