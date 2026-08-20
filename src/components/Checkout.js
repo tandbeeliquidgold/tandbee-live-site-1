@@ -9,7 +9,14 @@ import Modal from "../components/Modal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons"; // Import the arrow icon
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const stripePromises = {
+  US: process.env.REACT_APP_CHANA_STRIPE_PUBLISHABLE_KEY
+    ? loadStripe(process.env.REACT_APP_CHANA_STRIPE_PUBLISHABLE_KEY)
+    : null,
+  Israel: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY
+    ? loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY)
+    : null,
+};
 
 function Checkout({ cart, setCart, removeFromCart }) {
   const { currency } = useContext(CurrencyContext);
@@ -207,6 +214,11 @@ function Checkout({ cart, setCart, removeFromCart }) {
     setIsLoading(true);
 
     try {
+      const stripePromise = stripePromises[shopRegion];
+      if (!stripePromise) {
+        throw new Error(`Stripe checkout is not configured for ${shopRegion}`);
+      }
+
       const stripe = await stripePromise;
 
       const lineItems = aggregatedCart.aggregatedCart.map((item) => {
@@ -263,7 +275,8 @@ function Checkout({ cart, setCart, removeFromCart }) {
           hasComments: hasComments,
           giftNote: giftNote || null,
           comments: hasComments ? comments : null,
-          shippingDetails,
+          shippingDetails: { ...shippingDetails, region: shopRegion },
+          shopRegion,
           deliveryCharge: totalDeliveryCharge,
           selectedDeliveryOption,
           isSponsorHoneyBoardInCart,
@@ -1152,7 +1165,6 @@ function Checkout({ cart, setCart, removeFromCart }) {
         <p className="availability-note">
           If recipient is not home, the package will be left by the door.
         </p>
-        {/*
         {aggregatedCart.aggregatedCart.length ? (
           <div className="submit-order-btn-wrapper">
             <button
@@ -1171,13 +1183,6 @@ function Checkout({ cart, setCart, removeFromCart }) {
               </div>
             ) : null}
           </div>
-        ) : null}
-        */}
-        {aggregatedCart.aggregatedCart.length ? (
-          <p className="payment-disabled-message">
-            Payment is temporarily disabled for maintenance. Please return soon
-            to place orders.
-          </p>
         ) : null}
 
         {/* <p className="availability-notee">

@@ -1,25 +1,12 @@
-const Stripe = require("stripe");
 const {
   getProducts,
   getDeliveries,
   getPromos,
 } = require("../lib/productCatalog");
-
-let stripe;
-
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error("Stripe is not configured on this server");
-  }
-
-  if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2022-11-15",
-    });
-  }
-
-  return stripe;
-}
+const {
+  getStripeClient,
+  normalizeOrderRegion,
+} = require("../lib/stripeAccounts");
 
 const CUSTOM_LOGO_PRODUCT_ID = "__custom_logo__";
 const CUSTOM_LOGO_US_CENTS = 5000;
@@ -28,7 +15,6 @@ const CUSTOM_LOGO_IL_CENTS = 17500;
 module.exports = async (req, res) => {
   if (req.method === "POST") {
     try {
-      const stripeClient = getStripe();
       const {
         items,
         giftNote,
@@ -43,13 +29,41 @@ module.exports = async (req, res) => {
         specialDeliveryOnly,
         isInstitution,
         institutionName,
+        shopRegion,
       } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         throw new Error("No items found in the request");
       }
 
-      const currencyCode = currency === "Dollar" ? "usd" : "ils";
+      if (!shippingDetails || typeof shippingDetails !== "object") {
+        throw new Error("Shipping details are required");
+      }
+
+      const requestedRegion = normalizeOrderRegion(
+        shopRegion || shippingDetails.region
+      );
+      const inferredRegion =
+        currency === "Dollar"
+          ? "US"
+          : currency === "Shekel"
+            ? "Israel"
+            : null;
+      const orderRegion = requestedRegion || inferredRegion;
+
+      if (!orderRegion) {
+        throw new Error("A valid order region is required");
+      }
+
+      const expectedCurrency = orderRegion === "US" ? "Dollar" : "Shekel";
+      if (currency !== expectedCurrency) {
+        throw new Error("Order region and currency do not match");
+      }
+
+      // US orders use Chana's Stripe account; Israel orders use the regular
+      // Stripe account. The server chooses this independently of the browser.
+      const stripeClient = getStripeClient(orderRegion);
+      const currencyCode = orderRegion === "US" ? "usd" : "ils";
       const [products, deliveries, promos] = await Promise.all([
         getProducts(),
         getDeliveries(),
@@ -180,7 +194,7 @@ module.exports = async (req, res) => {
         selectedDeliveryOption &&
         !(isSponsorHoneyBoardInCart && items.length === 1)
       ) {
-        const expectedRegion = currency === "Dollar" ? "US" : "Israel";
+        const expectedRegion = orderRegion;
         const delivery = deliveries.find(
           (option) =>
             option.active &&
@@ -271,7 +285,7 @@ module.exports = async (req, res) => {
           zipCode: shippingDetails.zipCode,
           specialDeliveryOnly: specialDeliveryOnly,
           contactNumber: shippingDetails.contactNumber,
-          region: shippingDetails.region,
+          region: orderRegion,
           promoCode: activePromo?.code || "",
           discountInfo: activePromo
             ? `${discountPercent}% discount applied; delivery excluded`

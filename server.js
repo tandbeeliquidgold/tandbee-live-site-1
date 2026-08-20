@@ -7,7 +7,6 @@ const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
 const dotenv = require("dotenv");
-const Stripe = require("stripe");
 const axios = require("axios");
 const multer = require("multer");
 const upload = multer({ dest: "uploads/" }); // Temporary storage before uploading to S3
@@ -17,6 +16,7 @@ const path = require("path");
 const crypto = require("crypto"); // Import crypto for generating random strings
 const { Resend } = require('resend'); // Add this import at the top
 const createCheckoutSession = require("./api/create-checkout-session");
+const { verifyStripeWebhook } = require("./lib/stripeAccounts");
 
 dotenv.config();
 const app = express();
@@ -42,11 +42,6 @@ app.use(
     },
   })
 );
-
-// Initialize Stripe with your secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -284,13 +279,14 @@ app.post(
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
+    let stripeClient;
+    let accountRegion;
 
     try {
-      event = stripe.webhooks.constructEvent(
-        req.rawBody,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+      const verifiedWebhook = verifyStripeWebhook(req.rawBody, sig);
+      event = verifiedWebhook.event;
+      stripeClient = verifiedWebhook.stripeClient;
+      accountRegion = verifiedWebhook.accountRegion;
     } catch (err) {
       return res.sendStatus(400);
     }
@@ -309,7 +305,7 @@ app.post(
       let apartmentNumber = "";
       let floor = "";
       let code = "";
-      let shopRegion = session.metadata.region;
+      let shopRegion = accountRegion;
 
       if (homeType === "building") {
         apartmentNumber = session.metadata.apartmentNumber;
@@ -330,7 +326,7 @@ app.post(
       }
 
       try {
-        const lineItems = await stripe.checkout.sessions.listLineItems(
+        const lineItems = await stripeClient.checkout.sessions.listLineItems(
           session.id,
           { expand: ["data.price.product"] }
         );

@@ -1,4 +1,3 @@
-const Stripe = require("stripe");
 const { Resend } = require("resend");
 const https = require("https");
 const fs = require("fs");
@@ -7,6 +6,10 @@ const { buffer } = require("micro");
 const crypto = require("crypto"); // Import crypto for generating random strings
 
 const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  normalizeOrderRegion,
+  verifyStripeWebhook,
+} = require("../lib/stripeAccounts");
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -16,10 +19,6 @@ const s3Client = new S3Client({
   },
 });
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
-
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -27,16 +26,17 @@ module.exports = async (req, res) => {
   if (req.method === "POST") {
     const sig = req.headers["stripe-signature"];
     let event;
+    let stripeClient;
+    let accountRegion;
     let lineItems;
 
     try {
       // Parse raw body for Stripe webhook signature verification
       const rawBody = await buffer(req);
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+      const verifiedWebhook = verifyStripeWebhook(rawBody, sig);
+      event = verifiedWebhook.event;
+      stripeClient = verifiedWebhook.stripeClient;
+      accountRegion = verifiedWebhook.accountRegion;
     } catch (err) {
       console.error(`⚠️  Webhook signature verification failed.`, err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -53,7 +53,14 @@ module.exports = async (req, res) => {
       const recipientName = session.metadata.recipientName;
       const address = session.metadata.address;
       const homeType = session.metadata.homeType;
-      const shopRegion = session.metadata.region;
+      const metadataRegion = normalizeOrderRegion(session.metadata?.region);
+      if (metadataRegion && metadataRegion !== accountRegion) {
+        console.warn(
+          `Stripe account/metadata region mismatch: ${accountRegion}/${metadataRegion}`
+        );
+      }
+      // The verified Stripe account is authoritative for fulfillment routing.
+      const shopRegion = accountRegion;
       let apartmentNumber = "";
       let floor = "";
       let code = "";
@@ -79,7 +86,7 @@ module.exports = async (req, res) => {
       }
 
       try {
-        lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+        lineItems = await stripeClient.checkout.sessions.listLineItems(session.id, {
           expand: ["data.price.product"],
         });
 
