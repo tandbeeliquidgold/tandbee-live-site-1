@@ -607,7 +607,7 @@ app.post(
         // Send email to chana resnick as well if US
         if (shopRegion === "US") {
           await resend.emails.send({
-            from: "contact@uxilitypro.com", // Update this with your verified domain
+            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
             to: process.env.US_PERSONAL_EMAIL,
             subject: `New Order from ${customerEmail} - ${orderNumber}`,
             html: adminEmailHtml,
@@ -659,7 +659,7 @@ app.post("/send-email", async (req, res) => {
   try {
     // Send email to admin
     await resend.emails.send({
-      from: "contact@uxilitypro.com", // Update this with your verified domain
+      from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
       to: process.env.PERSONAL_EMAIL,
       subject: "New Contact Form Submission 3",
       html: `
@@ -678,7 +678,7 @@ app.post("/send-email", async (req, res) => {
 
     // Send confirmation email to sender
     await resend.emails.send({
-      from: "contact@uxilitypro.com", // Update this with your verified domain
+      from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
       to: email,
       subject: "Thank you for contacting us 3",
       html: `

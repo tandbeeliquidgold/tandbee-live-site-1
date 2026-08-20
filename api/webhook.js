@@ -357,7 +357,7 @@ ${
         try {
           // Send email to customer using Resend
           await resend.emails.send({
-            from: "contact@uxilitypro.com", // Update this with your verified domain
+            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
             to: customerEmail,
             subject: `Order Confirmation - ${orderNumber}`,
             html: customerEmailHtml,
@@ -366,7 +366,7 @@ ${
 
           // Send email to admin using Resend
           await resend.emails.send({
-            from: "contact@uxilitypro.com", // Update this with your verified domain
+            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
             to: process.env.PERSONAL_EMAIL,
             subject: `New Order from ${customerEmail} - ${orderNumber}`,
             html: adminEmailHtml,
@@ -376,7 +376,7 @@ ${
           // Send email to chana resnick as well if US
           if (shopRegion === "US") {
             await resend.emails.send({
-              from: "contact@uxilitypro.com", // Update this with your verified domain
+              from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
               to: process.env.US_PERSONAL_EMAIL,
               subject: `New Order from ${customerEmail} - ${orderNumber}`,
               html: adminEmailHtml,
