@@ -1,0 +1,7 @@
+{
+  "build": {
+    "env": {
+      "GIT_SUBMODULE_STRATEGY": "recursive"
+    }
+  }
+}

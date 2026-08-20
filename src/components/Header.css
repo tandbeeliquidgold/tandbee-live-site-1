@@ -1,0 +1,438 @@
+.header {
+  background-color: #fff;
+  color: #333;
+  padding: 10px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  min-height: 60px;
+}
+
+.logo-region-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Legacy manual currency switcher styles intentionally disabled.
+.currency-toggle {
+  cursor: pointer;
+  font-size: 1.3rem;
+  color: #333;
+  transition: color 0.3s ease;
+}
+*/
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo img {
+  height: 50px;
+}
+
+.header nav ul {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  font-size: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.header nav ul li a {
+  color: #333;
+  text-decoration: none;
+  padding: 5px 10px;
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+  display: inline-block;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Legacy combined selector intentionally disabled.
+.header nav ul li a,
+.currency-toggle {
+  color: #333;
+  text-decoration: none;
+  padding: 5px 10px;
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+  display: inline-block;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+*/
+
+.header nav ul li.cart-link {
+  position: relative;
+}
+
+.cart-link {
+  position: relative;
+}
+
+.cart-count {
+  background-color: #7c2234;
+  transition: background-color 0.3s ease;
+  color: white;
+  border-radius: 50%;
+  padding: 1px 7px;
+  font-size: 12px;
+  position: absolute;
+  top: -5px;
+  right: -15px;
+}
+
+.header nav ul li {
+  position: relative;
+}
+
+.header nav ul li .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 10px 15px;
+  list-style: none;
+  min-width: max-content;
+}
+
+.header nav ul li.active .dropdown-menu {
+  display: block;
+}
+
+.header nav ul li .dropdown-menu .dropdown-menu-item {
+  color: #333;
+  text-decoration: none;
+  display: inline-block;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.hamburger div {
+  width: 25px;
+  height: 3px;
+  background-color: #333;
+  margin: 4px 0;
+  transition: 0.4s;
+}
+
+.shop-toggle {
+  cursor: pointer;
+  font-size: 1rem;
+  background-color: #7c2234;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  margin-left: 15px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+/* Updated Slider Styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc; /* Default background */
+  background-image: url('../../public/israel-flag-min.png');
+  background-size: cover; /* Ensure the flag covers the entire slider */
+  background-position: center; /* Center the flag image */
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-image: url('../../public/usa-flag-min.jpg'); /* American flag when checked */
+  background-size: cover; /* Ensure the flag covers the entire slider */
+  background-position: center; /* Center the flag image */
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.shop-toggle-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-label {
+  font-size: 1rem;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Hover effects for larger screens only */
+@media (min-width: 769px) {
+  /* Legacy manual currency hover selector intentionally disabled.
+  .currency-toggle:hover,
+  */
+  .header nav ul li a:hover,
+  .header nav ul li .dropdown-menu .dropdown-menu-item:hover, .slider-label:hover {
+    color: #7c2234;
+    border-bottom: 1px solid #7c2234;
+    transform: translateY(-2px);
+  }
+
+    .shop-toggle:hover {
+      border-bottom: 1px solid #7c2234;
+    transform: translateY(-2px);
+    }
+
+
+  .logo img:hover {
+    transform: translateY(-5px);
+  }
+
+  .header nav ul li.cart-link a:hover .cart-count {
+    background-color: #b74058;
+  }
+
+  .shop-toggle:hover {
+    background-color: #b74058;
+    transform: translateY(-2px);
+  }
+
+  .shop-toggle:focus {
+    outline: none;
+  }
+}
+
+/* For larger screens */
+@media (min-width: 768px) {
+  .header {
+    padding: 15px 30px;
+  }
+
+  .header nav ul {
+    gap: 40px;
+  }
+
+  .logo img {
+    height: 60px;
+  }
+
+  .shop-toggle {
+    font-size: 1.2rem;
+    padding: 10px 20px;
+  }
+}
+
+/* For medium screens (tablets and smaller desktops) */
+@media (max-width: 768px) {
+  .logo img {
+    height: 45px;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 80px;
+    height: 24px;
+  }
+
+  .shop-toggle-slider {
+    margin-right: 20px;
+  }
+
+  .header nav ul {
+    gap: 10px;
+  }
+
+  .shop-toggle {
+    font-size: 1.1rem;
+    padding: 6px 12px;
+  }
+
+  /* Remove hover effects */
+  /* .currency-toggle:hover, */
+  .header nav ul li a:hover,
+  .shop-toggle:hover,
+  .header nav ul li .dropdown-menu .dropdown-menu-item:hover,
+  .slider-label:hover,
+  .logo img:hover,
+  .header nav ul li.cart-link a:hover .cart-count {
+    
+    border-bottom: none;
+    
+    transform: none;
+  }
+}
+
+/* For small screens (mobile devices) */
+@media (max-width: 576px) {
+  .header {
+    padding: 10px 15px;
+    justify-content: space-between;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+
+  .slider-label{
+    width: 50px;
+  }
+
+  .logo img {
+    height: 40px;
+  }
+
+  .shop-toggle {
+    font-size: 0.9rem;
+    padding: 4px 8px;
+  }
+
+  .header nav ul {
+    display: none;
+    flex-direction: column;
+    gap: 15px;
+    position: absolute;
+    top: 60px;
+    right: 0;
+    background-color: #fff;
+    width: 100%;
+    padding: 20px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .hamburger {
+    display: flex;
+    margin-left: auto;
+  }
+
+  .header nav ul.active {
+    display: flex;
+  }
+
+  .header nav ul li .dropdown-menu {
+    position: relative;
+    top: 0;
+    left: 0;
+  }
+
+  .header nav ul li.active .dropdown-menu {
+    display: block;
+  }
+
+  .header nav ul li .dropdown-menu li {
+    padding: 10px;
+  }
+
+  .logo-region-wrapper {
+    gap: 10px;
+  }
+
+  /* Remove hover effects */
+  /* .currency-toggle:hover, */
+  .header nav ul li a:hover,
+  .shop-toggle:hover,
+  .header nav ul li .dropdown-menu .dropdown-menu-item:hover,
+  .slider-label:hover,
+  .logo img:hover,
+  .header nav ul li.cart-link a:hover .cart-count {
+    
+    border-bottom: none;
+    
+    transform: none;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 375px) {
+  .logo img {
+    height: 35px;
+  }
+
+  
+
+  .header nav ul {
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .shop-toggle {
+    font-size: 0.8rem;
+    padding: 3px 6px;
+  }
+
+  .shop-toggle {
+    margin-left: 5px;
+  }
+}
+/* Very small screens */
+@media (max-width: 350px) {
+  .slider-label{
+    width: 40px;
+  }
+}

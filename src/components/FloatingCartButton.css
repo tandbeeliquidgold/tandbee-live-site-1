@@ -1,0 +1,34 @@
+.floating-cart-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: white; /* Replace with your brand's primary color */
+  color: #7c2234; /* Replace with your brand's text color */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: none; /* Hide by default */
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  text-decoration: none;
+}
+
+.floating-cart-button .cart-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  color: #fff; /* Keep this white for contrast */
+  background-color: #7c2234; /* Added background color for visibility */
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* Only show on mobile screens */
+@media (max-width: 768px) {
+  .floating-cart-button {
+    display: flex; /* Show only on mobile */
+  }
+} 
