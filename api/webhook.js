@@ -10,6 +10,10 @@ const {
   normalizeOrderRegion,
   verifyStripeWebhook,
 } = require("../lib/stripeAccounts");
+const {
+  buildAdminPickupNoticeHtml,
+  buildCustomerPickupNoticeHtml,
+} = require("../lib/pickupEmail");
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -243,6 +247,10 @@ ${
         const deliveryItem = lineItems.data.find((item) =>
           item.description.toLowerCase().includes("delivery charge")
         );
+        const customerPickupNoticeHtml =
+          buildCustomerPickupNoticeHtml(deliveryItem);
+        const adminPickupNoticeHtml =
+          buildAdminPickupNoticeHtml(deliveryItem);
 
         // Calculate the subtotal for product items only (without delivery fee)
         const subtotalAmount = productItems.reduce(
@@ -281,6 +289,8 @@ ${
     </header>
     <p style="font-size: 16px;">Dear ${fullName.trim()},</p>
     <p style="font-size: 16px;">Thank you for your purchase! We are currently processing your order. Below are the details of your order:</p>
+
+    ${customerPickupNoticeHtml}
     
     <h3 style="color: #333; margin-bottom: 10px;">Order Details</h3>
     <ul style="font-size: 16px; list-style-type: none; padding: 0;">
@@ -323,6 +333,8 @@ ${
       <p style="font-size: 16px; color: #777;">Order Number: <strong>${orderNumber}</strong></p>
     </header>
     <p style="font-size: 16px;">You have received a new order from ${fullName} (${customerEmail}). Below are the details:</p>
+
+    ${adminPickupNoticeHtml}
     
     <h3 style="color: #333; margin-bottom: 10px;">Order Details</h3>
     <ul style="font-size: 16px; list-style-type: none; padding: 0;">
