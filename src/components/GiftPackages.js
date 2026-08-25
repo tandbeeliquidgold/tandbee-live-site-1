@@ -7,6 +7,7 @@ import { useShopContext } from "../context/ShopContext"; // Import ShopContext f
 import { FaCheckCircle } from "react-icons/fa";
 import {
   applyCatalogOverrides,
+  getAvailableHoneyFlavors,
   useProductCatalog,
 } from "../context/ProductCatalogContext";
 
@@ -85,21 +86,10 @@ function GiftPackages({ cart, addToCart }) {
 
   const exchangeRate = useContext(ExchangeRateContext);
 
-  // Available honey flavors, excluding Bourbon in US
-  const honeyFlavors = useMemo(() => {
-    const all = [
-      "Chocolate Creamed Honey",
-      "Cinnamon Creamed Honey",
-      "Pumpkin Creamed Honey",
-      "Sea Salt Creamed Honey",
-      "Vanilla Creamed Honey",
-      "Bourbon Creamed Honey",
-      // "Blueberry Creamed Honey",
-      "Strawberry Creamed Honey",
-      "Hot n' Spicy Honey",
-    ];
-    return all;
-  }, [shopRegion]);
+  const honeyFlavors = useMemo(
+    () => getAvailableHoneyFlavors(overrides, shopRegion),
+    [overrides, shopRegion]
+  );
 
   // How many honey choices each package needs (matches GiftPackageDetail)
   const honeyCountById = {

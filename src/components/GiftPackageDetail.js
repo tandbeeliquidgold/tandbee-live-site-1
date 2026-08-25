@@ -8,6 +8,7 @@ import QuantitySelector from "./QuantitySelector";
 import { useShopContext } from "../context/ShopContext"; // Import ShopContext for region check
 import {
   applyCatalogOverride,
+  getAvailableHoneyFlavors,
   useProductCatalog,
 } from "../context/ProductCatalogContext";
 
@@ -79,24 +80,10 @@ function GiftPackageDetail({ cart, addToCart }) {
 
   const exchangeRate = useContext(ExchangeRateContext);
 
-  // Available honey flavors, excluding Bourbon Creamed Honey if region is US
-  const honeyFlavors = useMemo(() => {
-    const allFlavors = [
-      "Chocolate Creamed Honey",
-      "Cinnamon Creamed Honey",
-      "Pumpkin Creamed Honey",
-      "Sea Salt Creamed Honey",
-      "Vanilla Creamed Honey",
-      "Bourbon Creamed Honey",
-      "Blueberry Creamed Honey",
-      "Strawberry Creamed Honey",
-      "Hot n' Spicy Honey",
-    ];
-    // Exclude Bourbon Creamed Honey if region is US
-    return shopRegion === "US"
-      ? allFlavors.filter((flavor) => flavor !== "Bourbon Creamed Honey")
-      : allFlavors;
-  }, [shopRegion]);
+  const honeyFlavors = useMemo(
+    () => getAvailableHoneyFlavors(overrides, shopRegion),
+    [overrides, shopRegion]
+  );
 
   // Helper function to calculate price in Shekels
   const calculatePriceInShekels = (priceDollar) =>

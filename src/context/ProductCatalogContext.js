@@ -6,6 +6,18 @@ const ProductCatalogContext = createContext({
   error: null,
 });
 
+const FALLBACK_HONEY_FLAVORS = [
+  "Chocolate Creamed Honey",
+  "Cinnamon Creamed Honey",
+  "Pumpkin Creamed Honey",
+  "Sea Salt Creamed Honey",
+  "Vanilla Creamed Honey",
+  "Bourbon Creamed Honey",
+  "Blueberry Creamed Honey",
+  "Strawberry Creamed Honey",
+  "Hot n' Spicy Honey",
+];
+
 export function ProductCatalogProvider({ children }) {
   const [overrides, setOverrides] = useState({});
   const [loading, setLoading] = useState(true);
@@ -58,6 +70,21 @@ export function ProductCatalogProvider({ children }) {
 
 export function useProductCatalog() {
   return useContext(ProductCatalogContext);
+}
+
+export function getAvailableHoneyFlavors(overrides, shopRegion) {
+  const honeyProducts = Object.values(overrides).filter(
+    (product) => product.section === "Honey Collection" && product.itemName
+  );
+
+  if (!honeyProducts.length) {
+    return FALLBACK_HONEY_FLAVORS;
+  }
+
+  const stockField = shopRegion === "US" ? "stockUS" : "stockIL";
+  return honeyProducts
+    .filter((product) => product[stockField] !== false)
+    .map((product) => product.itemName);
 }
 
 export function applyCatalogOverride(
