@@ -60,6 +60,7 @@ function SponsorAHoneyBoardDetail({ cart, addToCart }) {
       "Vanilla Creamed Honey",
       "Bourbon Creamed Honey",
       "Blueberry Creamed Honey",
+      "Hot n' Spicy Honey",
     ],
     []
   );

@@ -160,6 +160,16 @@ function HoneyCollection({ cart, addToCart }) {
         isSoldOut: false,
       },
       {
+        id: "hotNSpicyHoney",
+        url: "hotnspicy-honey.png",
+        title: "Hot n' Spicy Honey",
+        sizeUS: "4oz",
+        priceDollar: 16,
+        sizeIL: "120ml",
+        priceShekel: 50,
+        category: "honey jars",
+      },
+      {
         id: "blueberryCreamedHoney",
         url: "blueberry screenshot-min.png",
         title: "Blueberry Creamed Honey",

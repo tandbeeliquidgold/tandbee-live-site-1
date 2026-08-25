@@ -89,7 +89,8 @@ function GiftPackageDetail({ cart, addToCart }) {
       "Vanilla Creamed Honey",
       "Bourbon Creamed Honey",
       "Blueberry Creamed Honey",
-      "Strawberry Creamed Honey"
+      "Strawberry Creamed Honey",
+      "Hot n' Spicy Honey",
     ];
     // Exclude Bourbon Creamed Honey if region is US
     return shopRegion === "US"

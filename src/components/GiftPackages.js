@@ -96,6 +96,7 @@ function GiftPackages({ cart, addToCart }) {
       "Bourbon Creamed Honey",
       // "Blueberry Creamed Honey",
       "Strawberry Creamed Honey",
+      "Hot n' Spicy Honey",
     ];
     return all;
   }, [shopRegion]);

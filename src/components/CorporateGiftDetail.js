@@ -39,6 +39,7 @@ function CorporateGiftDetail({ cart, addToCart }) {
         "Bourbon Creamed Honey",
         "Pumpkin Creamed Honey",
         "Strawberry Creamed Honey",
+        "Hot n' Spicy Honey",
       ],
     },
     miniSixCollectionBoard: {
