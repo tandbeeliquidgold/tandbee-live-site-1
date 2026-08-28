@@ -188,7 +188,7 @@ function Header({ cart, cartItemCount, clearCart }) {
 
   const whatsappUrl =
     shopRegion === "US"
-      ? "https://wa.me/message/AUHFRK2KKV27O1"
+      ? "https://wa.me/18452698649"
       : "https://wa.me/+972534309254";
 
   return (

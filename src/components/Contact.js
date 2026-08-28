@@ -18,7 +18,7 @@ function Contact() {
 
   const whatsappUrl =
     shopRegion === "US"
-      ? "https://wa.me/message/AUHFRK2KKV27O1"
+      ? "https://wa.me/18452698649"
       : "https://wa.me/+972534309254";
 
   const phoneNumber = shopRegion === "US" ? "845-269-8649" : "053-430-9254";

@@ -382,7 +382,7 @@ function Checkout({ cart, setCart, removeFromCart }) {
 
     const whatsappUrl =
       shopRegion === "US"
-        ? "https://wa.me/message/AUHFRK2KKV27O1"
+        ? "https://wa.me/18452698649"
         : "https://wa.me/+972534309254";
 
     if (selectedOption.isWhatsApp) {
@@ -1222,7 +1222,7 @@ function Checkout({ cart, setCart, removeFromCart }) {
           onCancel={() => {
             const whatsappUrl =
               shopRegion === "US"
-                ? "https://wa.me/message/AUHFRK2KKV27O1"
+                ? "https://wa.me/18452698649"
                 : "https://wa.me/+972534309254";
             // Show WhatsApp message and button when user clicks "No"
             setModalConfig({
