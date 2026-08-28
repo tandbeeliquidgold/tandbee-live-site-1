@@ -7,6 +7,7 @@ const {
   getStripeClient,
   normalizeOrderRegion,
 } = require("../lib/stripeAccounts");
+const { isPromoEligible } = require("../lib/promoRules");
 
 const CUSTOM_LOGO_PRODUCT_ID = "__custom_logo__";
 const CUSTOM_LOGO_US_CENTS = 5000;
@@ -140,13 +141,13 @@ module.exports = async (req, res) => {
       const activePromo = promoCode
         ? promos.find(
             (promo) =>
-              promo.active &&
+              isPromoEligible(promo, orderRegion) &&
               promo.code.toLowerCase() === String(promoCode).trim().toLowerCase()
           )
         : null;
 
       if (promoCode && !activePromo) {
-        throw new Error("That promo code is not active");
+        throw new Error("That promo code is not active for this store or time");
       }
 
       const discountPercent = activePromo?.discountPercent || 0;

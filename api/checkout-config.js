@@ -1,4 +1,6 @@
 const { getDeliveries, getPromos } = require("../lib/productCatalog");
+const { normalizeOrderRegion } = require("../lib/stripeAccounts");
+const { isPromoEligible } = require("../lib/promoRules");
 
 module.exports = async function checkoutConfig(req, res) {
   if (req.method !== "GET") {
@@ -7,10 +9,18 @@ module.exports = async function checkoutConfig(req, res) {
   }
 
   try {
+    const requestedRegion = normalizeOrderRegion(req.query?.region);
     const [deliveries, promos] = await Promise.all([
       getDeliveries(),
       getPromos(),
     ]);
+
+    const eligiblePromos = requestedRegion
+      ? promos.filter((promo) => isPromoEligible(promo, requestedRegion))
+      : promos.filter(
+          (promo) =>
+            isPromoEligible(promo, "US") || isPromoEligible(promo, "Israel")
+        );
 
     res.setHeader(
       "Cache-Control",
@@ -18,7 +28,7 @@ module.exports = async function checkoutConfig(req, res) {
     );
     return res.status(200).json({
       deliveries: deliveries.filter((delivery) => delivery.active),
-      promos: promos.filter((promo) => promo.active),
+      promos: eligiblePromos,
     });
   } catch (error) {
     console.error("Unable to load checkout configuration from Google Sheets", error);

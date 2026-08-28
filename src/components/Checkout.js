@@ -71,8 +71,14 @@ function Checkout({ cart, setCart, removeFromCart }) {
 
   useEffect(() => {
     let isMounted = true;
+    setIsCheckoutConfigLoading(true);
+    setCheckoutConfigError("");
+    setIsPromoApplied(false);
+    setPromoMessage({ message: "", type: "" });
 
-    fetch("/api/checkout-config")
+    fetch(
+      `/api/checkout-config?region=${encodeURIComponent(shopRegion)}`
+    )
       .then((response) => {
         if (!response.ok) {
           throw new Error("Unable to load live checkout options");
@@ -96,7 +102,7 @@ function Checkout({ cart, setCart, removeFromCart }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [shopRegion]);
 
   const deliveryOptions = useMemo(
     () =>
