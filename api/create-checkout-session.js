@@ -223,6 +223,9 @@ module.exports = async (req, res) => {
               metadata: {
                 note: "Delivery charge is not discounted",
                 deliveryId: delivery.deliveryId,
+                ...(delivery.pickupMessage && {
+                  pickupMessage: delivery.pickupMessage,
+                }),
               },
             },
             unit_amount: Math.round(deliveryPrice * 100),
