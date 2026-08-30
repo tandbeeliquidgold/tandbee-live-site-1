@@ -41,6 +41,11 @@ module.exports = async (req, res) => {
         throw new Error("Shipping details are required");
       }
 
+      const orderEmail = String(shippingDetails.email || "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(orderEmail)) {
+        throw new Error("A valid customer email is required");
+      }
+
       const requestedRegion = normalizeOrderRegion(
         shopRegion || shippingDetails.region
       );
@@ -268,13 +273,16 @@ module.exports = async (req, res) => {
         payment_method_types: ["card"],
         line_items: lineItems,
         mode: "payment",
+        // Keep the email collected by our form attached to Checkout as well as
+        // metadata, so the webhook has a reliable customer-email source.
+        customer_email: orderEmail,
         success_url: `${req.headers.origin}/success`,
         cancel_url: `${req.headers.origin}/canceled`,
         metadata: {
           ...(giftNote && { giftNote: giftNote }),
           ...(comments && { comments: comments }),
           fullName: shippingDetails.fullName,
-          email: shippingDetails.email,
+          email: orderEmail,
           number: shippingDetails.number,
           recipientName: shippingDetails.recipientName,
           address: shippingDetails.address,

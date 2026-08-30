@@ -3,7 +3,6 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { buffer } = require("micro");
-const crypto = require("crypto"); // Import crypto for generating random strings
 
 const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const {
@@ -14,6 +13,10 @@ const {
   buildAdminPickupNoticeHtml,
   buildCustomerPickupNoticeHtml,
 } = require("../lib/pickupEmail");
+const {
+  getStableOrderNumber,
+  sendOrderEmails,
+} = require("../lib/orderEmail");
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -33,6 +36,7 @@ module.exports = async (req, res) => {
     let stripeClient;
     let accountRegion;
     let lineItems;
+    let validAttachments = [];
 
     try {
       // Parse raw body for Stripe webhook signature verification
@@ -48,16 +52,19 @@ module.exports = async (req, res) => {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      const customerEmail = session.customer_details.email;
-      const giftNote = session.metadata.giftNote || ""; // Retrieve gift note from session metadata
-      const comments = session.metadata.comments || ""; // Retrieve gift note from session metadata
-      const fullName = session.metadata.fullName;
-      const email = session.metadata.email;
-      const number = session.metadata.number;
-      const recipientName = session.metadata.recipientName;
-      const address = session.metadata.address;
-      const homeType = session.metadata.homeType;
-      const metadataRegion = normalizeOrderRegion(session.metadata?.region);
+      const metadata = session.metadata || {};
+      const customerEmail = String(
+        session.customer_details?.email || metadata.email || ""
+      ).trim();
+      const giftNote = metadata.giftNote || "";
+      const comments = metadata.comments || "";
+      const fullName = String(metadata.fullName || "Customer").trim();
+      const email = metadata.email || customerEmail || "";
+      const number = metadata.number || "";
+      const recipientName = metadata.recipientName || "";
+      const address = metadata.address || "";
+      const homeType = metadata.homeType || "";
+      const metadataRegion = normalizeOrderRegion(metadata.region);
       if (metadataRegion && metadataRegion !== accountRegion) {
         console.warn(
           `Stripe account/metadata region mismatch: ${accountRegion}/${metadataRegion}`
@@ -70,29 +77,37 @@ module.exports = async (req, res) => {
       let code = "";
 
       if (homeType === "building") {
-        apartmentNumber = session.metadata.apartmentNumber;
-        floor = session.metadata.floor;
-        code = session.metadata.code;
+        apartmentNumber = metadata.apartmentNumber || "";
+        floor = metadata.floor || "";
+        code = metadata.code || "";
       }
 
-      const city = session.metadata.city;
-      const state = session.metadata.state;
-      const zipCode = session.metadata.zipCode;
-      const contactNumber = session.metadata.contactNumber;
-      const promoCode = session.metadata.promoCode;
-      let specialDeliveryOnly = session.metadata.specialDeliveryOnly;
-      const isInstitution = session.metadata.isInstitution === "true";
-      const institutionName = session.metadata.institutionName;
+      const city = metadata.city || "";
+      const state = metadata.state || "";
+      const zipCode = metadata.zipCode || "";
+      const contactNumber = metadata.contactNumber || "";
+      const promoCode = metadata.promoCode || "";
+      const specialDeliveryOnly = metadata.specialDeliveryOnly;
+      const isInstitution = metadata.isInstitution === "true";
+      const institutionName = metadata.institutionName || "";
 
       if (!customerEmail) {
         console.error("No customer email provided. Cannot send email.");
-        return res.status(200).send();
+        return res.status(500).json({
+          error: "Customer email is missing from checkout session",
+        });
       }
 
       try {
-        lineItems = await stripeClient.checkout.sessions.listLineItems(session.id, {
-          expand: ["data.price.product"],
-        });
+        lineItems = await stripeClient.checkout.sessions.listLineItems(
+          session.id,
+          {
+            expand: ["data.price.product"],
+          }
+        );
+        const hasOrderAttachments = lineItems.data.some(
+          (item) => Boolean(item.price?.product?.metadata?.logoUrl)
+        );
 
         // Calculate the total price of all line items
         const totalAmount = lineItems.data.reduce(
@@ -102,25 +117,22 @@ module.exports = async (req, res) => {
 
         // Format the total price in the appropriate currency format
         const formattedTotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(totalAmount / 100).toFixed(2)}`
             : `₪${(totalAmount / 100).toFixed(2)}`;
 
-        // Generate a unique order number
-        const generateOrderNumber = () => {
-          const timestamp = Date.now().toString(36); // Base36 timestamp
-          const randomString = crypto.randomBytes(4).toString("hex"); // Random 4-byte hex string
-          return `ORD-${timestamp}-${randomString}`; // Order number format
-        };
-
-        const orderNumber = generateOrderNumber();
+        const orderNumber = getStableOrderNumber({
+          sessionId: session.id,
+          sessionCreated: session.created,
+        });
 
         // Map of product name to attachments for logo images
         const attachments = await Promise.all(
           lineItems.data.map(async (item) => {
             // Retrieve the logo URL from metadata
-            let logoUrl = item.price.product.metadata.logoUrl;
-            const productName = item.price.product.name; // Get the product name
+            const logoUrl = item.price?.product?.metadata?.logoUrl;
+            const productName =
+              item.price?.product?.name || item.description || "Item";
 
             if (logoUrl) {
               const fileName = `${productName.replace(
@@ -158,27 +170,31 @@ module.exports = async (req, res) => {
           })
         );
 
-        const validAttachments = attachments.filter(Boolean);
+        validAttachments = attachments.filter(Boolean);
 
         // Create HTML list of purchased items
         const itemsListHtml = lineItems.data
           .map((item) => {
-            const isCustomLogoCharge = item.description.includes("Custom Logo");
+            const description = String(
+              item.description || item.price?.product?.name || "Item"
+            );
+            const isCustomLogoCharge = description.includes("Custom Logo");
             return `
               <li style="padding: 10px 0; border-bottom: 1px solid #ddd;">
-                <strong>${item.quantity}x ${item.description}${
+                <strong>${item.quantity}x ${description}${
               isCustomLogoCharge ? " (see attachment)" : ""
             }</strong><br>
                 <span style="color: #777;">Price: ${
-                  item.currency.toUpperCase() === "USD" ? "$" : "₪"
+                  String(item.currency || "").toUpperCase() === "USD" ? "$" : "₪"
                 }${(item.amount_total / 100).toFixed(2)}</span>
               </li>
             `;
           })
           .join("");
 
-        const capitalizedHomeType =
-          homeType.charAt(0).toUpperCase() + homeType.slice(1);
+        const capitalizedHomeType = homeType
+          ? homeType.charAt(0).toUpperCase() + homeType.slice(1)
+          : "";
 
         /// HTML for Shipping Address
         let shippingAddressHtml =
@@ -242,10 +258,15 @@ ${
 
         // Separate product items and delivery fee
         const productItems = lineItems.data.filter(
-          (item) => !item.description.toLowerCase().includes("delivery charge")
+          (item) =>
+            !String(item.description || "")
+              .toLowerCase()
+              .includes("delivery charge")
         );
         const deliveryItem = lineItems.data.find((item) =>
-          item.description.toLowerCase().includes("delivery charge")
+          String(item.description || "")
+            .toLowerCase()
+            .includes("delivery charge")
         );
         const customerPickupNoticeHtml =
           buildCustomerPickupNoticeHtml(deliveryItem);
@@ -266,17 +287,17 @@ ${
 
         // Format the amounts in the appropriate currency format
         const formattedSubtotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(subtotalAmount / 100).toFixed(2)}`
             : `₪${(subtotalAmount / 100).toFixed(2)}`;
 
         const formattedDeliveryFee =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(deliveryFee / 100).toFixed(2)}`
             : `₪${(deliveryFee / 100).toFixed(2)}`;
 
         const formattedFinalTotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(finalTotalAmount / 100).toFixed(2)}`
             : `₪${(finalTotalAmount / 100).toFixed(2)}`;
 
@@ -287,7 +308,7 @@ ${
       <h2 style="color: #7c2234;">Order Confirmation</h2>
       <p style="font-size: 16px; color: #777;">Order Number: <strong>${orderNumber}</strong></p>
     </header>
-    <p style="font-size: 16px;">Dear ${fullName.trim()},</p>
+    <p style="font-size: 16px;">Dear ${fullName},</p>
     <p style="font-size: 16px;">Thank you for your purchase! We are currently processing your order. Below are the details of your order:</p>
 
     ${customerPickupNoticeHtml}
@@ -370,62 +391,43 @@ ${
   </div>
 `;
 
-        console.log("email: ", email);
-        console.log("customerEmail: ", customerEmail);
-
         try {
-          // Send email to customer using Resend
-          await resend.emails.send({
-            from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
-            to: customerEmail,
-            subject: `Order Confirmation - ${orderNumber}`,
-            html: customerEmailHtml,
+          const emailIds = await sendOrderEmails({
+            resend,
+            sessionId: session.id,
+            shopRegion,
+            customerEmail,
+            orderNumber,
+            customerEmailHtml,
+            adminEmailHtml,
             attachments: validAttachments,
+            hasOrderAttachments,
           });
-
-          // Send email to admin using Resend
-          await resend.emails.send({
-            from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
-            to: process.env.PERSONAL_EMAIL,
-            subject: `New Order from ${customerEmail} - ${orderNumber}`,
-            html: adminEmailHtml,
-            attachments: validAttachments,
+          console.log("Order emails accepted by Resend", {
+            stripeSessionId: session.id,
+            shopRegion,
+            orderNumber,
+            resendEmailIds: emailIds,
           });
-
-          // Send email to chana resnick as well if US
-          if (shopRegion === "US") {
-            await resend.emails.send({
-              from: "TandBee Liquid Gold <contact@tandbeeliquidgold.com>",
-              to: process.env.US_PERSONAL_EMAIL,
-              subject: `New Order from ${customerEmail} - ${orderNumber}`,
-              html: adminEmailHtml,
-              attachments: validAttachments,
-            });
-          }
-
-          // Delete downloaded images from /tmp
+        } catch (emailError) {
+          console.error("Error sending emails via Resend:", emailError);
+          throw emailError;
+        } finally {
           validAttachments.forEach((attachment) => {
             fs.unlink(attachment.path, (err) => {
               if (err) console.error("Error deleting file:", err);
             });
           });
-        } catch (emailError) {
-          console.error("Error sending emails via Resend:", emailError);
-          // Don't return here, as we still want to acknowledge the webhook
         }
       } catch (err) {
-        console.error("Error retrieving line items:", err);
-        // Don't return here, as we still want to acknowledge the webhook
+        console.error(
+          `Error processing ${shopRegion} checkout session ${session.id}:`,
+          err
+        );
+        return res.status(500).json({
+          error: "Failed to process checkout session",
+        });
       }
-    }
-
-    try {
-      const files = await fs.readdir("/tmp"); // List all files in /tmp
-      for (const file of files) {
-        await fs.unlink(path.join("/tmp", file)); // Delete each file
-      }
-    } catch (err) {
-      console.error("Error cleaning up /tmp directory:", err);
     }
 
     res.status(200).json({ received: true });

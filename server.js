@@ -13,7 +13,6 @@ const upload = multer({ dest: "uploads/" }); // Temporary storage before uploadi
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto"); // Import crypto for generating random strings
 const { Resend } = require('resend'); // Add this import at the top
 const createCheckoutSession = require("./api/create-checkout-session");
 const { verifyStripeWebhook } = require("./lib/stripeAccounts");
@@ -21,6 +20,10 @@ const {
   buildAdminPickupNoticeHtml,
   buildCustomerPickupNoticeHtml,
 } = require("./lib/pickupEmail");
+const {
+  getStableOrderNumber,
+  sendOrderEmails,
+} = require("./lib/orderEmail");
 
 dotenv.config();
 const app = express();
@@ -297,42 +300,50 @@ app.post(
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      const customerEmail = session.customer_details.email;
-      const giftNote = session.metadata.giftNote || "";
-      const comments = session.metadata.comments || "";
-      let fullName = session.metadata.fullName;
-      let email = session.metadata.email;
-      let number = session.metadata.number;
-      let recipientName = session.metadata.recipientName;
-      let address = session.metadata.address;
-      let homeType = session.metadata.homeType;
+      const metadata = session.metadata || {};
+      const customerEmail = String(
+        session.customer_details?.email || metadata.email || ""
+      ).trim();
+      const giftNote = metadata.giftNote || "";
+      const comments = metadata.comments || "";
+      const fullName = String(metadata.fullName || "Customer").trim();
+      const email = metadata.email || customerEmail || "";
+      const number = metadata.number || "";
+      const recipientName = metadata.recipientName || "";
+      const address = metadata.address || "";
+      const homeType = metadata.homeType || "";
       let apartmentNumber = "";
       let floor = "";
       let code = "";
-      let shopRegion = accountRegion;
+      const shopRegion = accountRegion;
 
       if (homeType === "building") {
-        apartmentNumber = session.metadata.apartmentNumber;
-        floor = session.metadata.floor;
-        code = session.metadata.code;
+        apartmentNumber = metadata.apartmentNumber || "";
+        floor = metadata.floor || "";
+        code = metadata.code || "";
       }
 
-      let city = session.metadata.city;
-      let state = session.metadata.state;
-      let zipCode = session.metadata.zipCode;
-      let contactNumber = session.metadata.contactNumber;
-      let promoCode = session.metadata.promoCode;
-      let specialDeliveryOnly = session.metadata.specialDeliveryOnly;
+      const city = metadata.city || "";
+      const state = metadata.state || "";
+      const zipCode = metadata.zipCode || "";
+      const contactNumber = metadata.contactNumber || "";
+      const promoCode = metadata.promoCode || "";
+      const specialDeliveryOnly = metadata.specialDeliveryOnly;
 
       if (!customerEmail) {
         console.error("No customer email provided. Cannot send email.");
-        return res.sendStatus(200);
+        return res
+          .status(500)
+          .send("Customer email is missing from checkout session");
       }
 
       try {
         const lineItems = await stripeClient.checkout.sessions.listLineItems(
           session.id,
           { expand: ["data.price.product"] }
+        );
+        const hasOrderAttachments = lineItems.data.some(
+          (item) => Boolean(item.price?.product?.metadata?.logoUrl)
         );
 
         // Calculate the total price of all line items
@@ -343,23 +354,20 @@ app.post(
 
         // Format the total price in the appropriate currency format
         const formattedTotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(totalAmount / 100).toFixed(2)}`
             : `₪${(totalAmount / 100).toFixed(2)}`;
 
-        // Generate a unique order number
-        const generateOrderNumber = () => {
-          const timestamp = Date.now().toString(36); // Base36 timestamp
-          const randomString = crypto.randomBytes(4).toString("hex"); // Random 4-byte hex string
-          return `ORD-${timestamp}-${randomString}`; // Order number format
-        };
-
-        const orderNumber = generateOrderNumber();
+        const orderNumber = getStableOrderNumber({
+          sessionId: session.id,
+          sessionCreated: session.created,
+        });
 
         const attachments = await Promise.all(
           lineItems.data.map(async (item) => {
-            let logoUrl = item.price.product.metadata.logoUrl;
-            const productName = item.price.product.name;
+            const logoUrl = item.price?.product?.metadata?.logoUrl;
+            const productName =
+              item.price?.product?.name || item.description || "Item";
 
             if (logoUrl) {
               const fileName = `${productName.replace(
@@ -401,22 +409,26 @@ app.post(
 
         const itemsListHtml = lineItems.data
           .map((item) => {
-            const isCustomLogoCharge = item.description.includes("Custom Logo");
+            const description = String(
+              item.description || item.price?.product?.name || "Item"
+            );
+            const isCustomLogoCharge = description.includes("Custom Logo");
             return `
               <li style="padding: 10px 0; border-bottom: 1px solid #ddd;">
-                <strong>${item.quantity}x ${item.description}${
+                <strong>${item.quantity}x ${description}${
               isCustomLogoCharge ? " (see attachment)" : ""
             }</strong><br>
                 <span style="color: #777;">Price: ${
-                  item.currency.toUpperCase() === "USD" ? "$" : "₪"
+                  String(item.currency || "").toUpperCase() === "USD" ? "$" : "₪"
                 }${(item.amount_total / 100).toFixed(2)}</span>
               </li>
             `;
           })
           .join("");
 
-        const capitalizedHomeType =
-          homeType.charAt(0).toUpperCase() + homeType.slice(1);
+        const capitalizedHomeType = homeType
+          ? homeType.charAt(0).toUpperCase() + homeType.slice(1)
+          : "";
 
         let shippingAddressHtml =
           specialDeliveryOnly === "true"
@@ -485,10 +497,15 @@ app.post(
 
         // Separate product items and delivery fee
         const productItems = lineItems.data.filter(
-          (item) => !item.description.toLowerCase().includes("delivery charge")
+          (item) =>
+            !String(item.description || "")
+              .toLowerCase()
+              .includes("delivery charge")
         );
         const deliveryItem = lineItems.data.find((item) =>
-          item.description.toLowerCase().includes("delivery charge")
+          String(item.description || "")
+            .toLowerCase()
+            .includes("delivery charge")
         );
         const customerPickupNoticeHtml =
           buildCustomerPickupNoticeHtml(deliveryItem);
@@ -509,17 +526,17 @@ app.post(
 
         // Format the amounts in the appropriate currency format
         const formattedSubtotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(subtotalAmount / 100).toFixed(2)}`
             : `₪${(subtotalAmount / 100).toFixed(2)}`;
 
         const formattedDeliveryFee =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(deliveryFee / 100).toFixed(2)}`
             : `₪${(deliveryFee / 100).toFixed(2)}`;
 
         const formattedFinalTotalAmount =
-          session.currency.toUpperCase() === "USD"
+          String(session.currency || "").toUpperCase() === "USD"
             ? `$${(finalTotalAmount / 100).toFixed(2)}`
             : `₪${(finalTotalAmount / 100).toFixed(2)}`;
 
@@ -530,7 +547,7 @@ app.post(
       <h2 style="color: #7c2234;">Order Confirmation</h2>
       <p style="font-size: 16px; color: #777;">Order Number: <strong>${orderNumber}</strong></p>
     </header>
-    <p style="font-size: 16px;">Dear ${fullName.trim()},</p>
+    <p style="font-size: 16px;">Dear ${fullName},</p>
     <p style="font-size: 16px;">Thank you for your purchase! We are currently processing your order. Below are the details of your order:</p>
 
     ${customerPickupNoticeHtml}
@@ -594,40 +611,27 @@ app.post(
   </div>
 `;
 
-        const mailOptionsCustomer = {
-          from: process.env.MAIL_USERNAME,
-          to: customerEmail,
-          subject: `Order Confirmation - ${orderNumber}`,
-          html: customerEmailHtml,
+        const emailIds = await sendOrderEmails({
+          resend,
+          sessionId: session.id,
+          shopRegion,
+          customerEmail,
+          orderNumber,
+          customerEmailHtml,
+          adminEmailHtml,
           attachments: validAttachments,
-        };
-
-        await resend.emails.send(mailOptionsCustomer);
-
-        const mailOptionsAdmin = {
-          from: process.env.MAIL_USERNAME,
-          to: process.env.PERSONAL_EMAIL,
-          subject: `New Order from ${customerEmail} - ${orderNumber}`,
-          html: adminEmailHtml,
-          attachments: validAttachments,
-        };
-
-        // Send email to chana resnick as well if US
-        if (shopRegion === "US") {
-          await resend.emails.send({
-            from: "contact@tandbeeliquidgold.com", // Update this with your verified domain
-            to: process.env.US_PERSONAL_EMAIL,
-            subject: `New Order from ${customerEmail} - ${orderNumber}`,
-            html: adminEmailHtml,
-            attachments: validAttachments,
-          });
-        }
-
-        await resend.emails.send(mailOptionsAdmin);
+          hasOrderAttachments,
+        });
+        console.log("Order emails accepted by Resend", {
+          stripeSessionId: session.id,
+          shopRegion,
+          orderNumber,
+          resendEmailIds: emailIds,
+        });
 
         const s3KeysToDelete = lineItems.data
           .map((item) => {
-            const logoUrl = item.price.product.metadata?.logoUrl;
+            const logoUrl = item.price?.product?.metadata?.logoUrl;
             if (logoUrl) {
               const key = logoUrl.split("/").pop();
               return { Key: key };
@@ -653,7 +657,11 @@ app.post(
 
         emptyUploadsDirectory();
       } catch (err) {
-        console.error("Error retrieving line items or sending email:", err);
+        console.error(
+          `Error processing ${shopRegion} checkout session ${session.id}:`,
+          err
+        );
+        return res.status(500).send("Failed to process checkout session");
       }
     }
 
